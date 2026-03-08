@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ops Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#4a90d9;--primary-light:#e8f0fe;--primary-dark:#2c5f9e;
+  --green:#34a853;--green-light:#e6f4ea;
+  --red:#ea4335;--red-light:#fce8e6;
+  --orange:#f9ab00;--orange-light:#fef7e0;
+  --bg:#f5f7fa;--surface:#fff;--border:#e0e4ea;
+  --text:#1a1a2e;--text-secondary:#5f6368;--text-light:#9aa0a6;
+  --radius:10px;--shadow:0 2px 8px rgba(0,0,0,.08);
+}
+html{font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:14px;color:var(--text);background:var(--bg)}
+body{min-height:100vh}
+
+/* Header */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+.header h1{font-size:1.15rem;font-weight:700;color:var(--primary-dark);white-space:nowrap}
+.search-wrap{flex:1;max-width:420px;position:relative}
+.search-wrap input{width:100%;padding:8px 12px 8px 36px;border:1px solid var(--border);border-radius:var(--radius);font-size:.875rem;outline:none;transition:border .2s}
+.search-wrap input:focus{border-color:var(--primary)}
+.search-wrap .icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-light);font-size:1rem}
+.search-results{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);max-height:360px;overflow-y:auto;display:none;z-index:200}
+.search-results.active{display:block}
+.sr-item{padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.sr-item:last-child{border:0}
+.sr-item:hover{background:var(--primary-light)}
+.sr-badge{font-size:.65rem;padding:2px 6px;border-radius:4px;font-weight:600;text-transform:uppercase}
+.sr-badge.task{background:var(--orange-light);color:#b06d00}
+.sr-badge.event{background:var(--primary-light);color:var(--primary-dark)}
+.sr-badge.link{background:var(--green-light);color:#1e7e34}
+.sr-badge.person{background:#f3e8fd;color:#7c3aed}
+
+.bell-btn{position:relative;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-secondary);padding:4px}
+.bell-btn .badge{position:absolute;top:-2px;right:-4px;background:var(--red);color:#fff;font-size:.6rem;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700}
+.notif-panel{position:absolute;top:calc(100% + 8px);right:0;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);display:none;z-index:200;max-height:320px;overflow-y:auto}
+.notif-panel.active{display:block}
+.notif-panel h4{padding:10px 14px;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--text-secondary)}
+.notif-item{padding:8px 14px;font-size:.8rem;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:flex-start}
+.notif-item:last-child{border:0}
+.notif-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
+
+/* Tabs */
+.tab-bar{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;overflow-x:auto}
+.tab-btn{padding:12px 20px;border:none;background:none;font-size:.875rem;font-weight:500;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .2s,border .2s}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary)}
+.tab-btn:hover{color:var(--primary)}
+
+.tab-content{display:none;padding:20px}
+.tab-content.active{display:block}
+
+/* FAB */
+.fab{position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:var(--primary);color:#fff;border:none;font-size:1.6rem;cursor:pointer;box-shadow:0 4px 12px rgba(74,144,217,.4);display:flex;align-items:center;justify-content:center;transition:transform .2s;z-index:90}
+.fab:hover{transform:scale(1.08)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:300;padding:16px}
+.modal-overlay.active{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-header h3{font-size:1rem}
+.modal-close{background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-secondary)}
+.modal-body{padding:20px}
+.modal-body label{display:block;font-size:.8rem;font-weight:600;color:var(--text-secondary);margin-bottom:4px;margin-top:12px}
+.modal-body label:first-child{margin-top:0}
+.modal-body input,.modal-body select,.modal-body textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:.875rem;font-family:inherit;outline:none}
+.modal-body input:focus,.modal-body select:focus,.modal-body textarea:focus{border-color:var(--primary)}
+.modal-body textarea{resize:vertical;min-height:60px}
+.modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.btn{padding:8px 18px;border-radius:6px;border:none;font-size:.85rem;font-weight:600;cursor:pointer;transition:opacity .2s}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{opacity:.9}
+.btn-secondary{background:var(--bg);color:var(--text-secondary)}
+
+/* Detail modal */
+.detail-modal .detail-section{margin-top:16px}
+.detail-modal .detail-section h4{font-size:.8rem;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.detail-list-item{padding:6px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.detail-list-item:last-child{border:0}
+
+/* Checkbox / multi-select */
+.multi-select{border:1px solid var(--border);border-radius:6px;max-height:120px;overflow-y:auto;padding:6px}
+.multi-select label{display:flex;align-items:center;gap:6px;padding:4px;cursor:pointer;font-size:.85rem;margin:0}
+.multi-select input[type=checkbox]{accent-color:var(--primary)}
+
+/* Preset buttons */
+.preset-row{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap}
+.preset-btn{padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surface);font-size:.75rem;cursor:pointer}
+.preset-btn:hover,.preset-btn.active{background:var(--primary-light);border-color:var(--primary)}
+
+/* ====================== SCHEDULE TAB ====================== */
+.cal-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.cal-nav button{background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:.85rem}
+.cal-nav button:hover{background:var(--primary-light)}
+.cal-nav h2{font-size:1.1rem;font-weight:600;min-width:180px;text-align:center}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:24px}
+.cal-header{background:var(--primary-light);padding:8px;text-align:center;font-size:.75rem;font-weight:600;color:var(--primary-dark)}
+.cal-day{background:var(--surface);min-height:70px;padding:6px;cursor:pointer;transition:background .15s}
+.cal-day:hover{background:var(--primary-light)}
+.cal-day.other-month{color:var(--text-light);background:#fafbfc}
+.cal-day.today{background:#e8f0fe}
+.cal-day-num{font-size:.8rem;font-weight:500;margin-bottom:4px}
+.cal-dots{display:flex;gap:3px;flex-wrap:wrap}
+.cal-dot{width:8px;height:8px;border-radius:50%;cursor:pointer}
+.cal-dot.internal{background:var(--primary)}
+.cal-dot.client{background:var(--green)}
+.cal-dot.deadline{background:var(--red)}
+
+.upcoming-section h3{font-size:1rem;font-weight:600;margin-bottom:12px}
+.event-card{display:flex;align-items:flex-start;gap:12px;padding:12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;background:var(--surface)}
+.event-type-bar{width:4px;border-radius:2px;align-self:stretch;flex-shrink:0}
+.event-type-bar.internal{background:var(--primary)}
+.event-type-bar.client{background:var(--green)}
+.event-type-bar.deadline{background:var(--red)}
+.event-info{flex:1}
+.event-title{font-weight:600;font-size:.9rem}
+.event-meta{font-size:.78rem;color:var(--text-secondary);margin-top:2px}
+.event-attendees{margin-top:4px;display:flex;gap:4px;flex-wrap:wrap}
+.attendee-chip{font-size:.72rem;padding:2px 8px;border-radius:10px;background:var(--primary-light);color:var(--primary-dark);cursor:pointer}
+.attendee-chip:hover{background:var(--primary);color:#fff}
+
+/* Event popup */
+.event-popup{position:fixed;z-index:250;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;width:280px}
+.event-popup h4{margin-bottom:8px}
+.event-popup .close-popup{float:right;background:none;border:none;cursor:pointer;font-size:1.1rem}
+
+/* ====================== STEPS TAB ====================== */
+.steps-toolbar{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.steps-toolbar select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:.85rem}
+.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kanban-col{background:var(--bg);border-radius:var(--radius);padding:12px;min-height:200px}
+.kanban-col-title{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-secondary);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.kanban-col-title .count{background:var(--border);padding:1px 7px;border-radius:10px;font-size:.7rem}
+.task-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;transition:box-shadow .15s}
+.task-card:hover{box-shadow:var(--shadow)}
+.task-desc{font-size:.85rem;font-weight:500;margin-bottom:8px}
+.task-assignee{font-size:.78rem;color:var(--primary);cursor:pointer}
+.task-assignee:hover{text-decoration:underline}
+.task-footer{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.priority-badge{font-size:.65rem;padding:2px 8px;border-radius:4px;font-weight:600;text-transform:uppercase}
+.priority-badge.high{background:var(--red-light);color:var(--red)}
+.priority-badge.medium{background:var(--orange-light);color:#b06d00}
+.priority-badge.low{background:var(--green-light);color:var(--green)}
+.deadline-badge{font-size:.72rem;color:var(--text-secondary)}
+.deadline-badge.overdue{color:var(--red);font-weight:600}
+.task-actions{display:flex;gap:6px;margin-top:8px;align-items:center}
+.task-actions select{font-size:.72rem;padding:3px 6px;border:1px solid var(--border);border-radius:4px}
+.task-actions label{font-size:.72rem;display:flex;align-items:center;gap:4px;cursor:pointer}
+
+/* ====================== LINKS TAB ====================== */
+.links-toolbar{margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap}
+.links-toolbar input,.links-toolbar select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:.85rem}
+.links-toolbar input{flex:1;min-width:200px}
+.link-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;background:var(--surface);transition:box-shadow .15s}
+.link-card:hover{box-shadow:var(--shadow)}
+.link-favicon{width:24px;height:24px;border-radius:4px;object-fit:contain;flex-shrink:0}
+.link-info{flex:1;min-width:0}
+.link-title{font-weight:600;font-size:.9rem}
+.link-title a{color:var(--primary);text-decoration:none}
+.link-title a:hover{text-decoration:underline}
+.link-desc{font-size:.78rem;color:var(--text-secondary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.link-meta{display:flex;gap:8px;align-items:center}
+.cat-tag{font-size:.68rem;padding:2px 8px;border-radius:4px;background:var(--primary-light);color:var(--primary-dark);font-weight:600}
+.click-count{font-size:.72rem;color:var(--text-light)}
+
+/* ====================== PEOPLE TAB ====================== */
+.people-toolbar{margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap}
+.people-toolbar select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:.85rem}
+.people-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.person-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:box-shadow .15s;cursor:pointer}
+.person-card:hover{box-shadow:var(--shadow)}
+.person-name{font-weight:600;font-size:.95rem;color:var(--primary);margin-bottom:4px}
+.type-badge{font-size:.65rem;padding:2px 8px;border-radius:4px;font-weight:600;text-transform:uppercase}
+.type-badge.owner{background:#e8f0fe;color:#1a56db}
+.type-badge.successor{background:#e6f4ea;color:#137333}
+.type-badge.advisor{background:#fef7e0;color:#b06d00}
+.type-badge.colleague{background:#f3e8fd;color:#7c3aed}
+.person-contact{font-size:.8rem;color:var(--text-secondary);margin-top:6px}
+.person-contact a{color:var(--primary);text-decoration:none}
+.person-pending{font-size:.78rem;color:var(--orange);margin-top:4px}
+.person-tasks{font-size:.78rem;color:var(--text-secondary);margin-top:2px}
+
+/* Edit/Delete icon buttons */
+.item-actions{display:inline-flex;gap:4px;flex-shrink:0}
+.icon-btn{background:none;border:1px solid var(--border);border-radius:4px;padding:3px 6px;cursor:pointer;font-size:.75rem;line-height:1;transition:background .15s}
+.icon-btn:hover{background:var(--primary-light)}
+.icon-btn.delete:hover{background:var(--red-light)}
+.icon-btn[title]::after{content:attr(title)}
+
+/* Responsive */
+@media(max-width:900px){
+  .kanban{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:640px){
+  .header{flex-wrap:wrap}
+  .header h1{width:100%}
+  .search-wrap{max-width:100%}
+  .tab-bar{padding:0 8px}
+  .tab-btn{padding:10px 12px;font-size:.8rem}
+  .tab-content{padding:12px}
+  .kanban{grid-template-columns:1fr}
+  .cal-day{min-height:50px;padding:4px}
+  .event-card{flex-direction:column}
+  .people-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <h1>⚡ Ops Dashboard</h1>
+  <div class="search-wrap">
+    <span class="icon">🔍</span>
+    <input id="globalSearch" type="text" placeholder="Search tasks, events, links, people…">
+    <div id="searchResults" class="search-results"></div>
+  </div>
+  <div style="position:relative">
+    <button class="bell-btn" id="bellBtn" title="Notifications">🔔<span class="badge" id="notifBadge" style="display:none">0</span></button>
+    <div class="notif-panel" id="notifPanel">
+      <h4>Notifications</h4>
+      <div id="notifList"></div>
+    </div>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="schedule">📅 Schedule</button>
+  <button class="tab-btn" data-tab="steps">✅ Steps</button>
+  <button class="tab-btn" data-tab="links">🔗 Links</button>
+  <button class="tab-btn" data-tab="people">👥 People</button>
+</nav>
+
+<!-- SCHEDULE -->
+<section id="tab-schedule" class="tab-content active">
+  <div class="cal-nav">
+    <button id="prevMonth">◀</button>
+    <h2 id="calMonthLabel"></h2>
+    <button id="nextMonth">▶</button>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+  <div class="upcoming-section">
+    <h3>Upcoming (Next 7 Days)</h3>
+    <div id="upcomingList"></div>
+  </div>
+</section>
+
+<!-- STEPS -->
+<section id="tab-steps" class="tab-content">
+  <div class="steps-toolbar">
+    <span style="font-weight:600;font-size:.85rem">Filter by assignee:</span>
+    <select id="assigneeFilter"><option value="">All</option></select>
+  </div>
+  <div class="kanban" id="kanban">
+    <div class="kanban-col" data-status="Not Started">
+      <div class="kanban-col-title">Not Started <span class="count" id="cnt-notstarted">0</span></div>
+      <div class="kanban-cards" id="col-notstarted"></div>
+    </div>
+    <div class="kanban-col" data-status="In Progress">
+      <div class="kanban-col-title">In Progress <span class="count" id="cnt-inprogress">0</span></div>
+      <div class="kanban-cards" id="col-inprogress"></div>
+    </div>
+    <div class="kanban-col" data-status="Blocked">
+      <div class="kanban-col-title">Blocked <span class="count" id="cnt-blocked">0</span></div>
+      <div class="kanban-cards" id="col-blocked"></div>
+    </div>
+    <div class="kanban-col" data-status="Completed">
+      <div class="kanban-col-title">Completed <span class="count" id="cnt-completed">0</span></div>
+      <div class="kanban-cards" id="col-completed"></div>
+    </div>
+  </div>
+</section>
+
+<!-- LINKS -->
+<section id="tab-links" class="tab-content">
+  <div class="links-toolbar">
+    <input id="linkSearch" type="text" placeholder="Search links…">
+    <select id="catFilter"><option value="">All Categories</option></select>
+  </div>
+  <div id="linksList"></div>
+</section>
+
+<!-- PEOPLE -->
+<section id="tab-people" class="tab-content">
+  <div class="people-toolbar">
+    <span style="font-weight:600;font-size:.85rem">Filter by type:</span>
+    <select id="typeFilter">
+      <option value="">All</option>
+      <option>Owner</option><option>Successor</option><option>Advisor</option><option>Colleague</option>
+    </select>
+  </div>
+  <div class="people-grid" id="peopleGrid"></div>
+</section>
+
+<!-- FAB -->
+<button class="fab" id="fabBtn" title="Add new">+</button>
+
+<!-- MODALS -->
+<!-- Add/Edit Event -->
+<div class="modal-overlay" id="modalEvent">
+  <div class="modal">
+    <div class="modal-header"><h3 id="modalEventTitle">Add Event</h3><button class="modal-close" onclick="closeModal('modalEvent')">✕</button></div>
+    <div class="modal-body">
+      <label>Title</label><input id="evTitle">
+      <label>Type</label>
+      <select id="evType"><option value="internal">Internal Meeting</option><option value="client">Client Meeting</option><option value="deadline">Deadline</option></select>
+      <label>Date & Time</label><input id="evDateTime" type="datetime-local">
+      <label>Attendees</label><div class="multi-select" id="evAttendees"></div>
+      <label>Location / Meeting Link</label><input id="evLocation">
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modalEvent')">Cancel</button><button class="btn btn-primary" id="saveEvent">Save</button></div>
+  </div>
+</div>
+
+<!-- Add/Edit Task -->
+<div class="modal-overlay" id="modalTask">
+  <div class="modal">
+    <div class="modal-header"><h3 id="modalTaskTitle">Add Task</h3><button class="modal-close" onclick="closeModal('modalTask')">✕</button></div>
+    <div class="modal-body">
+      <label>Description</label><textarea id="tkDesc"></textarea>
+      <label>Assignee</label><select id="tkAssignee"><option value="">Unassigned</option></select>
+      <label>Deadline</label><input id="tkDeadline" type="date">
+      <div class="preset-row">
+        <button class="preset-btn" data-days="1">+1d</button>
+        <button class="preset-btn" data-days="3">+3d</button>
+        <button class="preset-btn" data-days="7">+7d</button>
+        <button class="preset-btn" data-days="30">+1m</button>
+      </div>
+      <label>Priority</label>
+      <select id="tkPriority"><option>Low</option><option selected>Medium</option><option>High</option></select>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modalTask')">Cancel</button><button class="btn btn-primary" id="saveTask">Save</button></div>
+  </div>
+</div>
+
+<!-- Add/Edit Link -->
+<div class="modal-overlay" id="modalLink">
+  <div class="modal">
+    <div class="modal-header"><h3 id="modalLinkTitle">Add Link</h3><button class="modal-close" onclick="closeModal('modalLink')">✕</button></div>
+    <div class="modal-body">
+      <label>Title</label><input id="lnTitle">
+      <label>URL</label><input id="lnUrl" type="url" placeholder="https://…">
+      <label>Description</label><textarea id="lnDesc"></textarea>
+      <label>Category</label><input id="lnCategory" list="catSuggestions" placeholder="e.g. Design, Dev, Marketing">
+      <datalist id="catSuggestions"></datalist>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modalLink')">Cancel</button><button class="btn btn-primary" id="saveLink">Save</button></div>
+  </div>
+</div>
+
+<!-- Add/Edit Person -->
+<div class="modal-overlay" id="modalPerson">
+  <div class="modal">
+    <div class="modal-header"><h3 id="modalPersonTitle">Add Person</h3><button class="modal-close" onclick="closeModal('modalPerson')">✕</button></div>
+    <div class="modal-body">
+      <label>Name</label><input id="prName">
+      <label>Type</label>
+      <select id="prType"><option>Owner</option><option>Successor</option><option>Advisor</option><option>Colleague</option></select>
+      <label>Email</label><input id="prEmail" type="email">
+      <label>Phone</label><input id="prPhone" type="tel">
+      <label>Pending Actions</label><textarea id="prPending"></textarea>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modalPerson')">Cancel</button><button class="btn btn-primary" id="savePerson">Save</button></div>
+  </div>
+</div>
+
+<!-- Event Detail Popup -->
+<div class="event-popup" id="eventPopup" style="display:none">
+  <button class="close-popup" onclick="document.getElementById('eventPopup').style.display='none'">✕</button>
+  <div id="eventPopupContent"></div>
+</div>
+
+<!-- Person Detail Modal -->
+<div class="modal-overlay detail-modal" id="modalPersonDetail">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><h3 id="pdName"></h3><button class="modal-close" onclick="closeModal('modalPersonDetail')">✕</button></div>
+    <div class="modal-body">
+      <div id="pdMeta"></div>
+      <div class="detail-section"><h4>Open Tasks</h4><div id="pdTasks"></div></div>
+      <div class="detail-section"><h4>Upcoming Events</h4><div id="pdEvents"></div></div>
+      <div class="detail-section"><h4>Activity Log</h4><div id="pdActivity"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK v9 compat -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+// ==================== FIREBASE CONFIG ====================
+const firebaseConfig = {
+  apiKey: "AIzaSyC_JKYMZnAfgsxv5Rxgr46TD-pPk3hO_J8",
+  authDomain: "lbproject-156d5.firebaseapp.com",
+  projectId: "lbproject-156d5",
+  storageBucket: "lbproject-156d5.firebasestorage.app",
+  messagingSenderId: "622830749229",
+  appId: "1:622830749229:web:7eeace5d23be3ce6b05aa4"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ==================== STATE ====================
+let allTasks = [], allEvents = [], allLinks = [], allPeople = [];
+let calYear, calMonth;
+const now = new Date();
+calYear = now.getFullYear();
+calMonth = now.getMonth();
+
+// Editing state – null means "add new", a doc ID means "editing existing"
+let editingEventId = null;
+let editingTaskId = null;
+let editingLinkId = null;
+let editingPersonId = null;
+
+// ==================== TABS ====================
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+function switchToTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => {
+    c.classList.toggle('active', c.id === 'tab-' + name);
+  });
+}
+
+// ==================== MODALS ====================
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('active'); });
+});
+
+// FAB – open correct modal based on active tab (always "Add" mode)
+document.getElementById('fabBtn').addEventListener('click', () => {
+  const tab = document.querySelector('.tab-btn.active').dataset.tab;
+  if (tab === 'schedule') { resetEventForm(); refreshAttendeePicker(); openModal('modalEvent'); }
+  else if (tab === 'steps') { resetTaskForm(); refreshAssigneeDropdown(); openModal('modalTask'); }
+  else if (tab === 'links') { resetLinkForm(); openModal('modalLink'); }
+  else if (tab === 'people') { resetPersonForm(); openModal('modalPerson'); }
+});
+
+// Deadline presets
+document.querySelectorAll('.preset-btn[data-days]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const d = new Date();
+    d.setDate(d.getDate() + parseInt(btn.dataset.days));
+    document.getElementById('tkDeadline').value = d.toISOString().slice(0, 10);
+  });
+});
+
+// ==================== FORM RESET HELPERS ====================
+function resetEventForm() {
+  editingEventId = null;
+  document.getElementById('modalEventTitle').textContent = 'Add Event';
+  document.getElementById('evTitle').value = '';
+  document.getElementById('evType').value = 'internal';
+  document.getElementById('evDateTime').value = '';
+  document.getElementById('evLocation').value = '';
+  refreshAttendeePicker();
+}
+
+function resetTaskForm() {
+  editingTaskId = null;
+  document.getElementById('modalTaskTitle').textContent = 'Add Task';
+  document.getElementById('tkDesc').value = '';
+  document.getElementById('tkAssignee').value = '';
+  document.getElementById('tkDeadline').value = '';
+  document.getElementById('tkPriority').value = 'Medium';
+}
+
+function resetLinkForm() {
+  editingLinkId = null;
+  document.getElementById('modalLinkTitle').textContent = 'Add Link';
+  document.getElementById('lnTitle').value = '';
+  document.getElementById('lnUrl').value = '';
+  document.getElementById('lnDesc').value = '';
+  document.getElementById('lnCategory').value = '';
+}
+
+function resetPersonForm() {
+  editingPersonId = null;
+  document.getElementById('modalPersonTitle').textContent = 'Add Person';
+  document.getElementById('prName').value = '';
+  document.getElementById('prType').value = 'Owner';
+  document.getElementById('prEmail').value = '';
+  document.getElementById('prPhone').value = '';
+  document.getElementById('prPending').value = '';
+}
+
+// ==================== FIRESTORE LISTENERS ====================
+db.collection('people').onSnapshot(snap => {
+  allPeople = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderPeople();
+  refreshAssigneeDropdown();
+  refreshAssigneeFilter();
+  refreshAttendeePicker();
+  updateNotifications();
+});
+
+db.collection('tasks').orderBy('createdAt', 'desc').onSnapshot(snap => {
+  allTasks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderTasks();
+  updateNotifications();
+});
+
+db.collection('events').onSnapshot(snap => {
+  allEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderCalendar();
+  renderUpcoming();
+  updateNotifications();
+});
+
+db.collection('links').onSnapshot(snap => {
+  allLinks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderLinks();
+  updateCategoryFilter();
+});
+
+// ==================== SAVE HANDLERS ====================
+document.getElementById('saveEvent').addEventListener('click', async () => {
+  const title = document.getElementById('evTitle').value.trim();
+  if (!title) return;
+  const checked = [...document.querySelectorAll('#evAttendees input:checked')].map(i => i.value);
+  const data = {
+    title,
+    type: document.getElementById('evType').value,
+    dateTime: firebase.firestore.Timestamp.fromDate(new Date(document.getElementById('evDateTime').value)),
+    attendees: checked,
+    location: document.getElementById('evLocation').value.trim()
+  };
+  if (editingEventId) {
+    await db.collection('events').doc(editingEventId).update(data);
+  } else {
+    await db.collection('events').add(data);
+  }
+  closeModal('modalEvent');
+  resetEventForm();
+});
+
+document.getElementById('saveTask').addEventListener('click', async () => {
+  const desc = document.getElementById('tkDesc').value.trim();
+  if (!desc) return;
+  const dl = document.getElementById('tkDeadline').value;
+  const data = {
+    description: desc,
+    assigneeName: document.getElementById('tkAssignee').value,
+    deadline: dl ? firebase.firestore.Timestamp.fromDate(new Date(dl + 'T23:59:59')) : null,
+    priority: document.getElementById('tkPriority').value
+  };
+  if (editingTaskId) {
+    await db.collection('tasks').doc(editingTaskId).update(data);
+  } else {
+    data.status = 'Not Started';
+    data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    await db.collection('tasks').add(data);
+  }
+  closeModal('modalTask');
+  resetTaskForm();
+});
+
+document.getElementById('saveLink').addEventListener('click', async () => {
+  const title = document.getElementById('lnTitle').value.trim();
+  const url = document.getElementById('lnUrl').value.trim();
+  if (!title || !url) return;
+  const data = {
+    title,
+    url,
+    description: document.getElementById('lnDesc').value.trim(),
+    category: document.getElementById('lnCategory').value.trim() || 'General'
+  };
+  if (editingLinkId) {
+    await db.collection('links').doc(editingLinkId).update(data);
+  } else {
+    data.clickCount = 0;
+    await db.collection('links').add(data);
+  }
+  closeModal('modalLink');
+  resetLinkForm();
+});
+
+document.getElementById('savePerson').addEventListener('click', async () => {
+  const name = document.getElementById('prName').value.trim();
+  if (!name) return;
+  const data = {
+    name,
+    type: document.getElementById('prType').value,
+    email: document.getElementById('prEmail').value.trim(),
+    phone: document.getElementById('prPhone').value.trim(),
+    pending: document.getElementById('prPending').value.trim()
+  };
+  if (editingPersonId) {
+    const oldPerson = allPeople.find(p => p.id === editingPersonId);
+    const oldName = oldPerson ? oldPerson.name : '';
+    await db.collection('people').doc(editingPersonId).update(data);
+    // Update references if name changed
+    if (oldName && oldName !== name) {
+      const batch = db.batch();
+      allTasks.filter(t => t.assigneeName === oldName).forEach(t => {
+        batch.update(db.collection('tasks').doc(t.id), { assigneeName: name });
+      });
+      allEvents.filter(ev => (ev.attendees || []).includes(oldName)).forEach(ev => {
+        const updated = ev.attendees.map(a => a === oldName ? name : a);
+        batch.update(db.collection('events').doc(ev.id), { attendees: updated });
+      });
+      await batch.commit();
+    }
+  } else {
+    await db.collection('people').add(data);
+  }
+  closeModal('modalPerson');
+  resetPersonForm();
+});
+
+// ==================== EDIT FUNCTIONS ====================
+function editEvent(id) {
+  const ev = allEvents.find(e => e.id === id);
+  if (!ev) return;
+  editingEventId = id;
+  document.getElementById('modalEventTitle').textContent = 'Edit Event';
+  document.getElementById('evTitle').value = ev.title || '';
+  document.getElementById('evType').value = ev.type || 'internal';
+  const evDate = ev.dateTime ? (ev.dateTime.toDate ? ev.dateTime.toDate() : new Date(ev.dateTime)) : new Date();
+  const offset = evDate.getTimezoneOffset();
+  const local = new Date(evDate.getTime() - offset * 60000);
+  document.getElementById('evDateTime').value = local.toISOString().slice(0, 16);
+  document.getElementById('evLocation').value = ev.location || '';
+  refreshAttendeePicker(ev.attendees || []);
+  openModal('modalEvent');
+}
+
+function editTask(id) {
+  const t = allTasks.find(x => x.id === id);
+  if (!t) return;
+  editingTaskId = id;
+  document.getElementById('modalTaskTitle').textContent = 'Edit Task';
+  document.getElementById('tkDesc').value = t.description || '';
+  refreshAssigneeDropdown();
+  document.getElementById('tkAssignee').value = t.assigneeName || '';
+  if (t.deadline) {
+    const dl = t.deadline.toDate ? t.deadline.toDate() : new Date(t.deadline);
+    document.getElementById('tkDeadline').value = dl.toISOString().slice(0, 10);
+  } else {
+    document.getElementById('tkDeadline').value = '';
+  }
+  document.getElementById('tkPriority').value = t.priority || 'Medium';
+  openModal('modalTask');
+}
+
+function editLink(id) {
+  const l = allLinks.find(x => x.id === id);
+  if (!l) return;
+  editingLinkId = id;
+  document.getElementById('modalLinkTitle').textContent = 'Edit Link';
+  document.getElementById('lnTitle').value = l.title || '';
+  document.getElementById('lnUrl').value = l.url || '';
+  document.getElementById('lnDesc').value = l.description || '';
+  document.getElementById('lnCategory').value = l.category || '';
+  openModal('modalLink');
+}
+
+function editPerson(id) {
+  const p = allPeople.find(x => x.id === id);
+  if (!p) return;
+  editingPersonId = id;
+  document.getElementById('modalPersonTitle').textContent = 'Edit Person';
+  document.getElementById('prName').value = p.name || '';
+  document.getElementById('prType').value = p.type || 'Owner';
+  document.getElementById('prEmail').value = p.email || '';
+  document.getElementById('prPhone').value = p.phone || '';
+  document.getElementById('prPending').value = p.pending || '';
+  openModal('modalPerson');
+}
+
+// ==================== DELETE FUNCTIONS ====================
+async function deleteEvent(id) {
+  if (!confirm('Delete this event?')) return;
+  await db.collection('events').doc(id).delete();
+  document.getElementById('eventPopup').style.display = 'none';
+}
+
+async function deleteTask(id) {
+  if (!confirm('Delete this task?')) return;
+  await db.collection('tasks').doc(id).delete();
+}
+
+async function deleteLink(id) {
+  if (!confirm('Delete this link?')) return;
+  await db.collection('links').doc(id).delete();
+}
+
+async function deletePerson(id) {
+  if (!confirm('Delete this person?')) return;
+  await db.collection('people').doc(id).delete();
+}
+
+// ==================== SCHEDULE RENDERING ====================
+document.getElementById('prevMonth').addEventListener('click', () => { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar(); });
+document.getElementById('nextMonth').addEventListener('click', () => { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar(); });
+
+function renderCalendar() {
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent = `${months[calMonth]} ${calYear}`;
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  days.forEach(d => { const h = document.createElement('div'); h.className = 'cal-header'; h.textContent = d; grid.appendChild(h); });
+
+  const first = new Date(calYear, calMonth, 1);
+  const startDay = first.getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const prevDays = new Date(calYear, calMonth, 0).getDate();
+  const today = new Date();
+
+  for (let i = startDay - 1; i >= 0; i--) {
+    const cell = document.createElement('div');
+    cell.className = 'cal-day other-month';
+    cell.innerHTML = `<div class="cal-day-num">${prevDays - i}</div>`;
+    grid.appendChild(cell);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const cell = document.createElement('div');
+    const isToday = d === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
+    cell.className = 'cal-day' + (isToday ? ' today' : '');
+    cell.innerHTML = `<div class="cal-day-num">${d}</div>`;
+
+    const dayEvents = allEvents.filter(ev => {
+      if (!ev.dateTime) return false;
+      const evDate = ev.dateTime.toDate ? ev.dateTime.toDate() : new Date(ev.dateTime);
+      return evDate.getDate() === d && evDate.getMonth() === calMonth && evDate.getFullYear() === calYear;
+    });
+
+    if (dayEvents.length) {
+      const dots = document.createElement('div');
+      dots.className = 'cal-dots';
+      dayEvents.forEach(ev => {
+        const dot = document.createElement('span');
+        dot.className = `cal-dot ${ev.type}`;
+        dot.title = ev.title;
+        dot.addEventListener('click', e => { e.stopPropagation(); showEventPopup(ev, e); });
+        dots.appendChild(dot);
+      });
+      cell.appendChild(dots);
+    }
+    grid.appendChild(cell);
+  }
+
+  const totalCells = grid.children.length;
+  const remaining = (7 - (totalCells % 7)) % 7;
+  for (let i = 1; i <= remaining; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cal-day other-month';
+    cell.innerHTML = `<div class="cal-day-num">${i}</div>`;
+    grid.appendChild(cell);
+  }
+}
+
+function showEventPopup(ev, mouseEvent) {
+  const popup = document.getElementById('eventPopup');
+  const evDate = ev.dateTime.toDate ? ev.dateTime.toDate() : new Date(ev.dateTime);
+  document.getElementById('eventPopupContent').innerHTML = `
+    <h4>${esc(ev.title)}</h4>
+    <p style="font-size:.8rem;color:var(--text-secondary);margin-bottom:6px">${evDate.toLocaleString()}</p>
+    <p style="font-size:.82rem"><strong>Type:</strong> ${ev.type}</p>
+    ${ev.location ? `<p style="font-size:.82rem"><strong>Location:</strong> ${esc(ev.location)}</p>` : ''}
+    ${ev.attendees && ev.attendees.length ? `<p style="font-size:.82rem"><strong>Attendees:</strong> ${ev.attendees.map(a => `<span class="attendee-chip" onclick="navigateToPerson('${esc(a)}')">${esc(a)}</span>`).join(' ')}</p>` : ''}
+    <div style="margin-top:10px;display:flex;gap:6px">
+      <button class="icon-btn" onclick="editEvent('${ev.id}')" title="Edit">✏️</button>
+      <button class="icon-btn delete" onclick="deleteEvent('${ev.id}')" title="Delete">🗑️</button>
+    </div>
+  `;
+  popup.style.display = 'block';
+  popup.style.left = Math.min(mouseEvent.clientX, window.innerWidth - 300) + 'px';
+  popup.style.top = Math.min(mouseEvent.clientY + 10, window.innerHeight - 200) + 'px';
+}
+
+document.addEventListener('click', e => {
+  const popup = document.getElementById('eventPopup');
+  if (!popup.contains(e.target) && !e.target.classList.contains('cal-dot')) popup.style.display = 'none';
+});
+
+function renderUpcoming() {
+  const container = document.getElementById('upcomingList');
+  const now = new Date();
+  const weekLater = new Date(now);
+  weekLater.setDate(weekLater.getDate() + 7);
+
+  const upcoming = allEvents.filter(ev => {
+    if (!ev.dateTime) return false;
+    const d = ev.dateTime.toDate ? ev.dateTime.toDate() : new Date(ev.dateTime);
+    return d >= now && d <= weekLater;
+  }).sort((a, b) => {
+    const da = a.dateTime.toDate ? a.dateTime.toDate() : new Date(a.dateTime);
+    const db2 = b.dateTime.toDate ? b.dateTime.toDate() : new Date(b.dateTime);
+    return da - db2;
+  });
+
+  if (!upcoming.length) { container.innerHTML = '<p style="color:var(--text-light);font-size:.85rem">No upcoming events.</p>'; return; }
+
+  container.innerHTML = upcoming.map(ev => {
+    const d = ev.dateTime.toDate ? ev.dateTime.toDate() : new Date(ev.dateTime);
+    return `
+    <div class="event-card">
+      <div class="event-type-bar ${ev.type}"></div>
+      <div class="event-info">
+        <div class="event-title">${esc(ev.title)}</div>
+        <div class="event-meta">${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}${ev.location ? ' · ' + esc(ev.location) : ''}</div>
+        ${ev.attendees && ev.attendees.length ? `<div class="event-attendees">${ev.attendees.map(a => `<span class="attendee-chip" onclick="navigateToPerson('${esc(a)}')">${esc(a)}</span>`).join('')}</div>` : ''}
+      </div>
+      <div class="item-actions">
+        <button class="icon-btn" onclick="editEvent('${ev.id}')" title="Edit">✏️</button>
+        <button class="icon-btn delete" onclick="deleteEvent('${ev.id}')" title="Delete">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ==================== STEPS RENDERING ====================
+function renderTasks() {
+  const filterVal = document.getElementById('assigneeFilter').value;
+  const statuses = { 'Not Started': 'notstarted', 'In Progress': 'inprogress', 'Blocked': 'blocked', 'Completed': 'completed' };
+
+  Object.values(statuses).forEach(key => { document.getElementById('col-' + key).innerHTML = ''; });
+
+  const filtered = filterVal ? allTasks.filter(t => t.assigneeName === filterVal) : allTasks;
+  const counts = { notstarted: 0, inprogress: 0, blocked: 0, completed: 0 };
+
+  filtered.forEach(t => {
+    const colKey = statuses[t.status] || 'notstarted';
+    counts[colKey]++;
+    const isOverdue = t.deadline && t.status !== 'Completed' && (t.deadline.toDate ? t.deadline.toDate() : new Date(t.deadline)) < new Date();
+    const deadlineStr = t.deadline ? (t.deadline.toDate ? t.deadline.toDate() : new Date(t.deadline)).toLocaleDateString() : '';
+    const html = `
+    <div class="task-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="task-desc">${esc(t.description)}</div>
+        <div class="item-actions" style="margin-left:8px">
+          <button class="icon-btn" onclick="editTask('${t.id}')" title="Edit">✏️</button>
+          <button class="icon-btn delete" onclick="deleteTask('${t.id}')" title="Delete">🗑️</button>
+        </div>
+      </div>
+      ${t.assigneeName ? `<div class="task-assignee" onclick="navigateToPerson('${esc(t.assigneeName)}')">👤 ${esc(t.assigneeName)}</div>` : ''}
+      <div class="task-footer">
+        <span class="priority-badge ${t.priority.toLowerCase()}">${t.priority}</span>
+        ${deadlineStr ? `<span class="deadline-badge ${isOverdue ? 'overdue' : ''}">${isOverdue ? '⚠ ' : ''}${deadlineStr}</span>` : ''}
+      </div>
+      <div class="task-actions">
+        <label><input type="checkbox" ${t.status === 'Completed' ? 'checked' : ''} onchange="toggleTaskComplete('${t.id}', this.checked)"> Done</label>
+        <select onchange="changeTaskStatus('${t.id}', this.value)">
+          <option ${t.status==='Not Started'?'selected':''}>Not Started</option>
+          <option ${t.status==='In Progress'?'selected':''}>In Progress</option>
+          <option ${t.status==='Blocked'?'selected':''}>Blocked</option>
+          <option ${t.status==='Completed'?'selected':''}>Completed</option>
+        </select>
+      </div>
+    </div>`;
+    document.getElementById('col-' + colKey).insertAdjacentHTML('beforeend', html);
+  });
+
+  Object.entries(counts).forEach(([k, v]) => { document.getElementById('cnt-' + k).textContent = v; });
+}
+
+async function changeTaskStatus(id, status) {
+  await db.collection('tasks').doc(id).update({ status });
+}
+async function toggleTaskComplete(id, checked) {
+  await db.collection('tasks').doc(id).update({ status: checked ? 'Completed' : 'Not Started' });
+}
+
+document.getElementById('assigneeFilter').addEventListener('change', renderTasks);
+
+function refreshAssigneeFilter() {
+  const sel = document.getElementById('assigneeFilter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All</option>';
+  allPeople.forEach(p => { sel.insertAdjacentHTML('beforeend', `<option>${esc(p.name)}</option>`); });
+  sel.value = current;
+}
+
+function refreshAssigneeDropdown() {
+  const sel = document.getElementById('tkAssignee');
+  sel.innerHTML = '<option value="">Unassigned</option>';
+  allPeople.forEach(p => { sel.insertAdjacentHTML('beforeend', `<option>${esc(p.name)}</option>`); });
+}
+
+// ==================== LINKS RENDERING ====================
+function renderLinks() {
+  const search = document.getElementById('linkSearch').value.toLowerCase();
+  const cat = document.getElementById('catFilter').value;
+  const container = document.getElementById('linksList');
+
+  const filtered = allLinks.filter(l => {
+    if (cat && l.category !== cat) return false;
+    if (search && !(l.title || '').toLowerCase().includes(search) && !(l.description || '').toLowerCase().includes(search) && !(l.category || '').toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  if (!filtered.length) { container.innerHTML = '<p style="color:var(--text-light);font-size:.85rem">No links found.</p>'; return; }
+
+  container.innerHTML = filtered.map(l => {
+    const domain = (() => { try { return new URL(l.url).hostname; } catch { return ''; } })();
+    return `
+    <div class="link-card">
+      <img class="link-favicon" src="https://www.google.com/s2/favicons?sz=32&domain=${domain}" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2218%22 font-size=%2218%22>🔗</text></svg>'">
+      <div class="link-info">
+        <div class="link-title"><a href="${esc(l.url)}" target="_blank" rel="noopener" onclick="trackClick('${l.id}')">${esc(l.title)}</a></div>
+        <div class="link-desc">${esc(l.description || '')}</div>
+      </div>
+      <div class="link-meta">
+        <span class="cat-tag">${esc(l.category || 'General')}</span>
+        <span class="click-count" title="Click count">${l.clickCount || 0} clicks</span>
+      </div>
+      <div class="item-actions" style="margin-left:8px">
+        <button class="icon-btn" onclick="editLink('${l.id}')" title="Edit">✏️</button>
+        <button class="icon-btn delete" onclick="deleteLink('${l.id}')" title="Delete">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function trackClick(id) {
+  await db.collection('links').doc(id).update({ clickCount: firebase.firestore.FieldValue.increment(1) });
+}
+
+document.getElementById('linkSearch').addEventListener('input', renderLinks);
+document.getElementById('catFilter').addEventListener('change', renderLinks);
+
+function updateCategoryFilter() {
+  const sel = document.getElementById('catFilter');
+  const current = sel.value;
+  const cats = [...new Set(allLinks.map(l => l.category).filter(Boolean))];
+  sel.innerHTML = '<option value="">All Categories</option>';
+  cats.forEach(c => { sel.insertAdjacentHTML('beforeend', `<option>${esc(c)}</option>`); });
+  sel.value = current;
+  const dl = document.getElementById('catSuggestions');
+  dl.innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
+}
+
+// ==================== PEOPLE RENDERING ====================
+function renderPeople() {
+  const filter = document.getElementById('typeFilter').value;
+  const container = document.getElementById('peopleGrid');
+  const filtered = filter ? allPeople.filter(p => p.type === filter) : allPeople;
+
+  if (!filtered.length) { container.innerHTML = '<p style="color:var(--text-light);font-size:.85rem">No people found.</p>'; return; }
+
+  container.innerHTML = filtered.map(p => {
+    const openTasks = allTasks.filter(t => t.assigneeName === p.name && t.status !== 'Completed').length;
+    return `
+    <div class="person-card" onclick="showPersonDetail('${p.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="person-name">${esc(p.name)}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="type-badge ${(p.type||'').toLowerCase()}">${esc(p.type || '')}</span>
+          <div class="item-actions" onclick="event.stopPropagation()">
+            <button class="icon-btn" onclick="editPerson('${p.id}')" title="Edit">✏️</button>
+            <button class="icon-btn delete" onclick="deletePerson('${p.id}')" title="Delete">🗑️</button>
+          </div>
+        </div>
+      </div>
+      <div class="person-contact">
+        ${p.email ? `✉ <a href="mailto:${esc(p.email)}" onclick="event.stopPropagation()">${esc(p.email)}</a>` : ''}
+        ${p.phone ? `<br>📱 ${esc(p.phone)}` : ''}
+      </div>
+      ${p.pending ? `<div class="person-pending">⏳ ${esc(p.pending)}</div>` : ''}
+      <div class="person-tasks">${openTasks} open task${openTasks !== 1 ? 's' : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('typeFilter').addEventListener('change', renderPeople);
+
+function showPersonDetail(personId) {
+  const p = allPeople.find(x => x.id === personId);
+  if (!p) return;
+
+  document.getElementById('pdName').textContent = p.name;
+  document.getElementById('pdMeta').innerHTML = `
+    <span class="type-badge ${(p.type||'').toLowerCase()}">${esc(p.type || '')}</span>
+    ${p.email ? `<span style="margin-left:12px;font-size:.85rem">✉ <a href="mailto:${esc(p.email)}">${esc(p.email)}</a></span>` : ''}
+    ${p.phone ? `<span style="margin-left:12px;font-size:.85rem">📱 ${esc(p.phone)}</span>` : ''}
+    ${p.pending ? `<p style="margin-top:8px;font-size:.85rem;color:var(--orange)">⏳ ${esc(p.pending)}</p>` : ''}
+  `;
+
+  const openTasks = allTasks.filter(t => t.assigneeName === p.name && t.status !== 'Completed');
+  document.getElementById('pdTasks').innerHTML = openTasks.length
+    ? openTasks.map(t => `<div class="detail-list-item"><span class="priority-badge ${t.priority.toLowerCase()}" style="margin-right:6px">${t.priority}</span>${esc(t.description)}${t.deadline ? ' · Due ' + (t.deadline.toDate ? t.deadline.toDate() : new Date(t.deadline)).toLocaleDateString() : ''}</div>`).join('')
+    : '<p style="font-size:.82rem;color:var(--text-light)">None</p>';
+
+  const now = new Date();
+  const upcoming = allEvents.filter(ev => (ev.attendees || []).includes(p.name) && (ev.dateTime.toDate ? ev.dateTime.toDate() : new Date(ev.dateTime)) >= now);
+  document.getElementById('pdEvents').innerHTML = upcoming.length
+    ? upcoming.map(ev => { const d = ev.dateTime.toDate ? ev.dateTime.toDate() : new Date(ev.dateTime); return `<div class="detail-list-item">${esc(ev.title)} · ${d.toLocaleDateString()}</div>`; }).join('')
+    : '<p style="font-size:.82rem;color:var(--text-light)">None</p>';
+
+  const completedTasks = allTasks.filter(t => t.assigneeName === p.name && t.status === 'Completed');
+  const pastEvents = allEvents.filter(ev => (ev.attendees || []).includes(p.name) && (ev.dateTime.toDate ? ev.dateTime.toDate() : new Date(ev.dateTime)) < now);
+  const activity = [
+    ...completedTasks.map(t => ({ text: `✅ Completed: ${t.description}`, date: t.createdAt ? (t.createdAt.toDate ? t.createdAt.toDate() : new Date(t.createdAt)) : new Date() })),
+    ...pastEvents.map(ev => ({ text: `📅 Attended: ${ev.title}`, date: ev.dateTime.toDate ? ev.dateTime.toDate() : new Date(ev.dateTime) }))
+  ].sort((a, b) => b.date - a.date);
+
+  document.getElementById('pdActivity').innerHTML = activity.length
+    ? activity.slice(0, 20).map(a => `<div class="detail-list-item">${esc(a.text)} <span style="color:var(--text-light);font-size:.75rem">${a.date.toLocaleDateString()}</span></div>`).join('')
+    : '<p style="font-size:.82rem;color:var(--text-light)">No activity yet</p>';
+
+  openModal('modalPersonDetail');
+}
+
+function navigateToPerson(name) {
+  switchToTab('people');
+  const person = allPeople.find(p => p.name === name);
+  if (person) showPersonDetail(person.id);
+}
+
+function refreshAttendeePicker(selectedNames) {
+  const container = document.getElementById('evAttendees');
+  const sel = selectedNames || [];
+  container.innerHTML = allPeople.map(p => `<label><input type="checkbox" value="${esc(p.name)}" ${sel.includes(p.name) ? 'checked' : ''}> ${esc(p.name)}</label>`).join('');
+}
+
+// ==================== GLOBAL SEARCH ====================
+const searchInput = document.getElementById('globalSearch');
+const searchResultsEl = document.getElementById('searchResults');
+
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.toLowerCase().trim();
+  if (!q) { searchResultsEl.classList.remove('active'); return; }
+
+  const results = [];
+  allTasks.forEach(t => {
+    if ((t.description || '').toLowerCase().includes(q) || (t.assigneeName || '').toLowerCase().includes(q))
+      results.push({ type: 'task', label: t.description, sub: t.assigneeName || 'Unassigned', data: t });
+  });
+  allEvents.forEach(ev => {
+    if ((ev.title || '').toLowerCase().includes(q) || (ev.location || '').toLowerCase().includes(q))
+      results.push({ type: 'event', label: ev.title, sub: ev.type, data: ev });
+  });
+  allLinks.forEach(l => {
+    if ((l.title || '').toLowerCase().includes(q) || (l.description || '').toLowerCase().includes(q) || (l.category || '').toLowerCase().includes(q))
+      results.push({ type: 'link', label: l.title, sub: l.category || 'General', data: l });
+  });
+  allPeople.forEach(p => {
+    if ((p.name || '').toLowerCase().includes(q) || (p.email || '').toLowerCase().includes(q))
+      results.push({ type: 'person', label: p.name, sub: p.type || '', data: p });
+  });
+
+  if (!results.length) { searchResultsEl.innerHTML = '<div class="sr-item" style="color:var(--text-light)">No results</div>'; }
+  else {
+    searchResultsEl.innerHTML = results.slice(0, 15).map((r, i) => `
+      <div class="sr-item" data-idx="${i}">
+        <span class="sr-badge ${r.type}">${r.type}</span>
+        <div><div style="font-weight:500">${esc(r.label)}</div><div style="font-size:.75rem;color:var(--text-light)">${esc(r.sub)}</div></div>
+      </div>`).join('');
+
+    searchResultsEl.querySelectorAll('.sr-item').forEach((el, i) => {
+      el.addEventListener('click', () => {
+        const r = results[i];
+        searchInput.value = '';
+        searchResultsEl.classList.remove('active');
+        if (r.type === 'task') switchToTab('steps');
+        else if (r.type === 'event') { switchToTab('schedule'); }
+        else if (r.type === 'link') switchToTab('links');
+        else if (r.type === 'person') { switchToTab('people'); showPersonDetail(r.data.id); }
+      });
+    });
+  }
+  searchResultsEl.classList.add('active');
+});
+
+document.addEventListener('click', e => { if (!document.querySelector('.search-wrap').contains(e.target)) searchResultsEl.classList.remove('active'); });
+
+// ==================== NOTIFICATIONS ====================
+document.getElementById('bellBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('notifPanel').classList.toggle('active');
+});
+document.addEventListener('click', e => { if (!document.getElementById('notifPanel').contains(e.target)) document.getElementById('notifPanel').classList.remove('active'); });
+
+function updateNotifications() {
+  const items = [];
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  allTasks.forEach(t => {
+    if (t.status !== 'Completed' && t.deadline) {
+      const dl = t.deadline.toDate ? t.deadline.toDate() : new Date(t.deadline);
+      if (dl < now) items.push({ color: 'var(--red)', text: `Overdue: ${t.description}` });
+    }
+  });
+
+  allEvents.forEach(ev => {
+    if (!ev.dateTime) return;
+    const d = ev.dateTime.toDate ? ev.dateTime.toDate() : new Date(ev.dateTime);
+    if (d >= now && d <= tomorrow) items.push({ color: 'var(--primary)', text: `Soon: ${ev.title}` });
+  });
+
+  const badge = document.getElementById('notifBadge');
+  if (items.length) { badge.style.display = 'flex'; badge.textContent = items.length; }
+  else { badge.style.display = 'none'; }
+
+  document.getElementById('notifList').innerHTML = items.length
+    ? items.map(i => `<div class="notif-item"><span class="notif-dot" style="background:${i.color}"></span>${esc(i.text)}</div>`).join('')
+    : '<div class="notif-item" style="color:var(--text-light)">All clear! 🎉</div>';
+}
+
+// ==================== HELPERS ====================
+function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ==================== SEED DATA ====================
+async function seedIfEmpty() {
+  try {
+    const pSnap = await db.collection('people').limit(1).get();
+    if (!pSnap.empty) return;
+
+    const people = [
+      { name: 'Alice Chen', type: 'Owner', email: 'alice@example.com', phone: '+1 555-0101', pending: 'Review Q3 budget' },
+      { name: 'Bob Martinez', type: 'Successor', email: 'bob@example.com', phone: '+1 555-0102', pending: '' },
+      { name: 'Carol Davis', type: 'Advisor', email: 'carol@example.com', phone: '+1 555-0103', pending: 'Sign advisory agreement' },
+      { name: 'Dan Kim', type: 'Colleague', email: 'dan@example.com', phone: '+1 555-0104', pending: '' }
+    ];
+    for (const p of people) await db.collection('people').add(p);
+
+    const tasks = [
+      { description: 'Prepare quarterly report', assigneeName: 'Alice Chen', deadline: firebase.firestore.Timestamp.fromDate(daysFromNow(3)), priority: 'High', status: 'In Progress', createdAt: firebase.firestore.FieldValue.serverTimestamp() },
+      { description: 'Update client contracts', assigneeName: 'Bob Martinez', deadline: firebase.firestore.Timestamp.fromDate(daysFromNow(7)), priority: 'Medium', status: 'Not Started', createdAt: firebase.firestore.FieldValue.serverTimestamp() },
+      { description: 'Fix login page bug', assigneeName: 'Dan Kim', deadline: firebase.firestore.Timestamp.fromDate(daysFromNow(-1)), priority: 'High', status: 'Blocked', createdAt: firebase.firestore.FieldValue.serverTimestamp() },
+      { description: 'Design new landing page', assigneeName: 'Bob Martinez', deadline: firebase.firestore.Timestamp.fromDate(daysFromNow(14)), priority: 'Low', status: 'Not Started', createdAt: firebase.firestore.FieldValue.serverTimestamp() },
+      { description: 'Set up monitoring alerts', assigneeName: 'Alice Chen', deadline: firebase.firestore.Timestamp.fromDate(daysFromNow(-3)), priority: 'Medium', status: 'Completed', createdAt: firebase.firestore.FieldValue.serverTimestamp() }
+    ];
+    for (const t of tasks) await db.collection('tasks').add(t);
+
+    const events = [
+      { title: 'Team Standup', type: 'internal', dateTime: firebase.firestore.Timestamp.fromDate(daysFromNow(1, 9)), attendees: ['Alice Chen', 'Bob Martinez', 'Dan Kim'], location: 'Zoom' },
+      { title: 'Client Review: Acme', type: 'client', dateTime: firebase.firestore.Timestamp.fromDate(daysFromNow(2, 14)), attendees: ['Alice Chen', 'Carol Davis'], location: 'Google Meet' },
+      { title: 'Q3 Report Deadline', type: 'deadline', dateTime: firebase.firestore.Timestamp.fromDate(daysFromNow(3, 17)), attendees: ['Alice Chen'], location: '' },
+      { title: 'Design Sprint Kickoff', type: 'internal', dateTime: firebase.firestore.Timestamp.fromDate(daysFromNow(5, 10)), attendees: ['Bob Martinez', 'Dan Kim'], location: 'Room 3B' }
+    ];
+    for (const e of events) await db.collection('events').add(e);
+
+    const links = [
+      { title: 'Project Roadmap', url: 'https://docs.google.com/spreadsheets/d/example', description: 'Q3-Q4 product roadmap', category: 'Planning', clickCount: 12 },
+      { title: 'Design System', url: 'https://figma.com/file/example', description: 'Component library and style guide', category: 'Design', clickCount: 8 },
+      { title: 'CI/CD Dashboard', url: 'https://github.com/actions', description: 'Build and deploy status', category: 'Dev', clickCount: 24 },
+      { title: 'Team Wiki', url: 'https://notion.so/example', description: 'Internal knowledge base', category: 'Docs', clickCount: 15 }
+    ];
+    for (const l of links) await db.collection('links').add(l);
+
+    console.log('✅ Seed data created');
+  } catch (err) {
+    console.log('Seed skipped (Firestore not configured or already seeded):', err.message);
+  }
+}
+
+function daysFromNow(days, hour = 12) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  d.setHours(hour, 0, 0, 0);
+  return d;
+}
+
+renderCalendar();
+seedIfEmpty();
+</script>
+</body>
+</html>
